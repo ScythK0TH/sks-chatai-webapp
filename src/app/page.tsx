@@ -72,6 +72,10 @@ const ChatPage = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isResponding, setIsResponding] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const voiceModeRef = useRef(voiceMode);
+  useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
 
   // Load sessions on mount
   useEffect(() => {
@@ -179,13 +183,15 @@ const ChatPage = () => {
   const speakText = async (text: string) => {
     const apiKey = localStorage.getItem('openai_api_key') || '';
     const voice = localStorage.getItem('openai_voice') || 'alloy';
+    const model = localStorage.getItem('openai_model') || 'tts-1';
+    const instructions = localStorage.getItem('openai_instructions') || '';
     if (!apiKey) return alert('Please set your OpenAI API Key in Settings.');
     setSpeaking(true);
     try {
       const res = await fetch('/api/ai-tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, voice, apiKey }),
+        body: JSON.stringify({ text, voice, apiKey, model, instructions }),
       });
       if (!res.ok) throw new Error('TTS error');
       const blob = await res.blob();
@@ -194,8 +200,9 @@ const ChatPage = () => {
       audio.onended = () => {
         setSpeaking(false);
         URL.revokeObjectURL(url);
-        if (voiceMode) {
-          voiceTimeoutRef.current = setTimeout(() => { if (voiceMode) startListening(); }, 500);
+        // ใช้ ref เช็ค voiceMode ปัจจุบัน
+        if (voiceModeRef.current) {
+          voiceTimeoutRef.current = setTimeout(() => { if (voiceModeRef.current) startListening(); }, 500);
         }
       };
       audio.play();
@@ -207,11 +214,14 @@ const ChatPage = () => {
 
   // --- Speech-to-Text (STT) ---
   const startListening = () => {
-    if (!voiceMode) return;
+    if (!voiceMode || listening) return;
     const apiKey = localStorage.getItem('openai_api_key') || '';
-    const language = localStorage.getItem('openai_language') || 'en';
-    if (!apiKey) return alert('Please set your OpenAI API Key in Settings.');
-    // ใช้ Web Speech API อัดเสียง แล้วส่งไฟล์ไป ai-stt
+    const language = localStorage.getItem('openai_stt_language') || 'en';
+    const sttModel = localStorage.getItem('openai_stt_model') || 'whisper-1';
+    if (!apiKey) {
+      alert('Please set your OpenAI API Key in Settings.');
+      return;
+    }
     if (!('MediaRecorder' in window)) {
       alert('MediaRecorder not supported in this browser.');
       return;
@@ -219,13 +229,18 @@ const ChatPage = () => {
     const chunks: BlobPart[] = [];
     navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
       const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      mediaStreamRef.current = stream;
       recorder.ondataavailable = e => chunks.push(e.data);
       recorder.onstop = async () => {
+        mediaRecorderRef.current = null;
+        mediaStreamRef.current = null;
         const audioBlob = new Blob(chunks, { type: 'audio/webm' });
         const formData = new FormData();
         formData.append('file', audioBlob, 'audio.webm');
         formData.append('apiKey', apiKey);
         formData.append('language', language);
+        formData.append('model', sttModel);
         setListening(false);
         try {
           const res = await fetch('/api/ai-stt', { method: 'POST', body: formData });
@@ -243,8 +258,9 @@ const ChatPage = () => {
             }));
             speakText(reply.reply);
           }
-        } catch {
-          alert('STT failed.');
+        } catch (err) {
+          setListening(false);
+          alert('STT failed. กรุณาตรวจสอบไมโครโฟนและ API Key');
         }
       };
       setListening(true);
@@ -252,6 +268,9 @@ const ChatPage = () => {
       setTimeout(() => {
         if (recorder.state === 'recording') recorder.stop();
       }, 6000); // จำกัดเวลาอัด 6 วินาที
+    }).catch(() => {
+      setListening(false);
+      alert('ไม่สามารถเข้าถึงไมโครโฟนได้ กรุณาอนุญาตการใช้งานไมค์');
     });
   };
 
@@ -261,8 +280,15 @@ const ChatPage = () => {
       startListening();
     }
     if (!voiceMode) {
-      if (recognitionRef.current) recognitionRef.current.abort();
-      setListening(false);
+      // หยุด MediaRecorder และปิด stream ทันที
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        mediaStreamRef.current = null;
+      }
+      setListening(false); // หยุดฟังทันทีเมื่อปิด voiceMode
       setSpeaking(false);
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel();
       if (voiceTimeoutRef.current) clearTimeout(voiceTimeoutRef.current);

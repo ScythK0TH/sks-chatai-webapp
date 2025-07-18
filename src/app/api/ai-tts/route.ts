@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
-  const { text, voice, apiKey } = await req.json();
+  const { text, voice, apiKey, model, instructions } = await req.json();
   if (!text || !apiKey) {
     return NextResponse.json({ error: 'Missing text or API key' }, { status: 400 });
   }
@@ -13,9 +13,11 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'tts-1',
+        model: model || 'tts-1',
         input: text,
         voice: voice || 'alloy',
+        instructions: instructions || undefined,
+        response_format: 'mp3',
       }),
     });
     if (!response.ok) {

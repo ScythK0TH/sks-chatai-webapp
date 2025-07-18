@@ -5,6 +5,7 @@ export async function POST(req: NextRequest) {
   const file = formData.get('file') as File;
   const apiKey = formData.get('apiKey') as string;
   const language = formData.get('language') as string;
+  const model = (formData.get('model') as string) || 'whisper-1';
   if (!file || !apiKey) {
     return NextResponse.json({ error: 'Missing file or API key' }, { status: 400 });
   }
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
       body: (() => {
         const fd = new FormData();
         fd.append('file', file);
-        fd.append('model', 'whisper-1');
+        fd.append('model', model);
         if (language) fd.append('language', language);
         return fd;
       })(),
