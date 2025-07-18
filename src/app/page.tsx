@@ -99,6 +99,7 @@ const ChatPage = () => {
   const recognitionRef = useRef<any>(null);
   const voiceTimeoutRef = useRef<any>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load sessions on mount
   useEffect(() => {
@@ -116,6 +117,12 @@ const ChatPage = () => {
   useEffect(() => { saveSessions(sessions); }, [sessions]);
 
   const currentSession = sessions.find((s) => s.id === currentId);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [currentSession?.messages.length]);
+
   const setCurrentSession = (updater: (s: any) => any) => {
     setSessions((prev) => prev.map((s) => (s.id === currentId ? updater(s) : s)));
   };
@@ -333,7 +340,14 @@ const ChatPage = () => {
       {/* Main Chat Area */}
       <main className="flex-1 flex flex-col relative">
         {/* Chat messages */}
-        <div className="flex-1 overflow-y-auto px-0 sm:px-0 md:px-0 py-10 md:py-14 flex flex-col gap-4 md:gap-6" style={{ minHeight: 0 }}>
+        <div
+          className="flex-1 overflow-y-auto px-0 sm:px-0 md:px-0 py-10 md:py-14 flex flex-col gap-4 md:gap-6 custom-scrollbar"
+          style={{
+            minHeight: 0,
+            maxHeight: 'calc(100vh - 96px)', // ปรับ 96px ตามความสูงของ input bar + padding
+            overflowY: 'auto'
+          }}
+        >
           <div className="max-w-2xl w-full mx-auto flex flex-col gap-4 md:gap-6 px-2 sm:px-4 md:px-0">
             {currentSession?.messages.map((msg: any, i: number) => (
               <div key={i} className={`group flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} items-end`}>
@@ -366,6 +380,7 @@ const ChatPage = () => {
                 </span>
               </div>
             ))}
+            <div ref={messagesEndRef} />
             {listening && voiceMode && (
               <div style={{ color: 'var(--icon-muted)' }} className="text-center font-semibold">Listening...</div>
             )}
