@@ -11,6 +11,7 @@ import Brightness7Icon from '@mui/icons-material/Brightness7';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import EditIcon from '@mui/icons-material/Edit';
+import ReactMarkdown from 'react-markdown';
 
 const WEBHOOK_URL = '/api/n8n-pipe'; // เปลี่ยนจาก URL เดิม
 
@@ -359,7 +360,7 @@ const ChatPage = () => {
                     border: `1px solid var(--bubble-border)`
                   }}
                 >
-                  {msg.text}
+                  <ReactMarkdown>{msg.text}</ReactMarkdown>
                   <span className="absolute left-3 -bottom-9 flex gap-1 items-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={() => handleCopy(msg.text, i)} className="p-1 rounded hover:opacity-80" title="Copy">
                       <ContentCopyIcon style={{ color: 'var(--icon-muted)', fontSize: 18 }} fontSize="small" />
