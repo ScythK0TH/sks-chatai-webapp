@@ -12,6 +12,8 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import EditIcon from '@mui/icons-material/Edit';
 import ReactMarkdown from 'react-markdown';
+import Link from 'next/link';
+import SettingsModal from './components/SettingsModal';
 
 const WEBHOOK_URL = '/api/n8n-pipe'; // เปลี่ยนจาก URL เดิม
 
@@ -69,6 +71,7 @@ const ChatPage = () => {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isResponding, setIsResponding] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Load sessions on mount
   useEffect(() => {
@@ -172,57 +175,84 @@ const ChatPage = () => {
     }
   };
 
+  // --- Text-to-Speech (TTS) ---
+  const speakText = async (text: string) => {
+    const apiKey = localStorage.getItem('openai_api_key') || '';
+    const voice = localStorage.getItem('openai_voice') || 'alloy';
+    if (!apiKey) return alert('Please set your OpenAI API Key in Settings.');
+    setSpeaking(true);
+    try {
+      const res = await fetch('/api/ai-tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voice, apiKey }),
+      });
+      if (!res.ok) throw new Error('TTS error');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => {
+        setSpeaking(false);
+        URL.revokeObjectURL(url);
+        if (voiceMode) {
+          voiceTimeoutRef.current = setTimeout(() => { if (voiceMode) startListening(); }, 500);
+        }
+      };
+      audio.play();
+    } catch {
+      setSpeaking(false);
+      alert('TTS failed.');
+    }
+  };
+
   // --- Speech-to-Text (STT) ---
   const startListening = () => {
     if (!voiceMode) return;
-    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      alert('Speech Recognition not supported in this browser.');
+    const apiKey = localStorage.getItem('openai_api_key') || '';
+    const language = localStorage.getItem('openai_language') || 'en';
+    if (!apiKey) return alert('Please set your OpenAI API Key in Settings.');
+    // ใช้ Web Speech API อัดเสียง แล้วส่งไฟล์ไป ai-stt
+    if (!('MediaRecorder' in window)) {
+      alert('MediaRecorder not supported in this browser.');
       return;
     }
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'th-TH';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.onresult = async (event: any) => {
-      if (!voiceMode) return;
-      const transcript = event.results[0][0].transcript;
-      setCurrentSession((s: any) => ({
-        ...s,
-        messages: [...s.messages, { sender: 'user', text: transcript }],
-      }));
-      setListening(false);
-      const res = await sendToWebhook({ message: transcript });
-      setCurrentSession((s: any) => ({
-        ...s,
-        messages: [...s.messages, { sender: 'bot', text: res.reply }],
-      }));
-      speakText(res.reply);
-    };
-    recognition.onerror = (event: any) => {
-      setListening(false);
-    };
-    recognition.onend = () => {
-      setListening(false);
-    };
-    recognitionRef.current = recognition;
-    setListening(true);
-    recognition.start();
-  };
-
-  // --- Text-to-Speech (TTS) ---
-  const speakText = (text: string) => {
-    if (!('speechSynthesis' in window)) return;
-    setSpeaking(true);
-    const utter = new window.SpeechSynthesisUtterance(text);
-    utter.lang = 'th-TH';
-    utter.onend = () => {
-      setSpeaking(false);
-      if (voiceMode) {
-        voiceTimeoutRef.current = setTimeout(() => { if (voiceMode) startListening(); }, 500);
-      }
-    };
-    window.speechSynthesis.speak(utter);
+    const chunks: BlobPart[] = [];
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+      const recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = e => chunks.push(e.data);
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('file', audioBlob, 'audio.webm');
+        formData.append('apiKey', apiKey);
+        formData.append('language', language);
+        setListening(false);
+        try {
+          const res = await fetch('/api/ai-stt', { method: 'POST', body: formData });
+          if (!res.ok) throw new Error('STT error');
+          const data = await res.json();
+          if (data.text) {
+            setCurrentSession((s: any) => ({
+              ...s,
+              messages: [...s.messages, { sender: 'user', text: data.text }],
+            }));
+            const reply = await sendToWebhook({ message: data.text });
+            setCurrentSession((s: any) => ({
+              ...s,
+              messages: [...s.messages, { sender: 'bot', text: reply.reply }],
+            }));
+            speakText(reply.reply);
+          }
+        } catch {
+          alert('STT failed.');
+        }
+      };
+      setListening(true);
+      recorder.start();
+      setTimeout(() => {
+        if (recorder.state === 'recording') recorder.stop();
+      }, 6000); // จำกัดเวลาอัด 6 วินาที
+    });
   };
 
   // --- Voice mode effect ---
@@ -306,7 +336,18 @@ const ChatPage = () => {
             </div>
           ))}
         </div>
-        <div style={{ color: 'var(--icon-muted)' }} className="p-4 text-xs text-center">Powered by Velura™</div>
+        <div style={{ color: 'var(--icon-muted)' }} className="p-4 text-xs text-center">
+          <div className="mb-2">
+            <button
+              style={{ background: 'var(--sidebar-active)', color: 'var(--icon)', border: '1px solid var(--sidebar-border)' }}
+              className="w-full px-4 py-2 rounded-lg shadow hover:opacity-80 transition-colors"
+              onClick={() => setShowSettings(true)}
+            >
+              Settings
+            </button>
+          </div>
+          Powered by Velura™
+        </div>
       </aside>
       {/* Main Chat Area */}
       <main className="flex-1 flex flex-col relative">
@@ -422,6 +463,7 @@ const ChatPage = () => {
           </button>
         </div>
       </main>
+      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 };
