@@ -154,6 +154,7 @@ const ChatPage = () => {
     const isSpecial = ['pdf', 'xls', 'xlsx', 'txt'].includes(ext || '');
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('sessionId', currentId);
     let res;
     if (isSpecial) {
       try {
