@@ -242,18 +242,19 @@ export default function SettingsModal({ open, onClose }: { open: boolean, onClos
         <div className="flex justify-end mt-8">
           <button
             onClick={handleSave}
-            className="font-semibold px-8 py-2 rounded-lg shadow transition"
+            className={`font-semibold px-8 py-2 rounded-lg shadow transition-colors duration-300 border ${saved ? 'bg-green-600 hover:bg-green-700' : 'bg-[var(--icon)] hover:opacity-85'}`}
             style={{
-              background: 'var(--icon)',
-              color: 'var(--background)',
+              color: saved
+                ? (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? '#171717' : '#fff')
+                : 'var(--background)',
               border: '1px solid var(--sidebar-border)',
             }}
             onMouseOver={e => (e.currentTarget.style.opacity = '0.85')}
             onMouseOut={e => (e.currentTarget.style.opacity = '1')}
+            disabled={saved}
           >
-            Save
+            {saved ? 'Saved!' : 'Save'}
           </button>
-          {saved && <span className="ml-4 text-green-600 font-medium self-center">Saved!</span>}
         </div>
       </div>
     </div>

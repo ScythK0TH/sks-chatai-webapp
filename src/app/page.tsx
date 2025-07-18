@@ -76,6 +76,29 @@ const ChatPage = () => {
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const voiceModeRef = useRef(voiceMode);
   useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const fakeEvent = {
+        target: { files },
+      } as unknown as React.ChangeEvent<HTMLInputElement>;
+      handleFileChange(fakeEvent);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (!isDragging) setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
 
   // Load sessions on mount
   useEffect(() => {
@@ -363,7 +386,30 @@ const ChatPage = () => {
 
   if (!mounted) return null;
   return (
-    <div style={{ background: 'var(--background)', color: 'var(--foreground)' }} className="flex h-screen font-sans">
+    <div
+      style={{ background: 'var(--background)', color: 'var(--foreground)' }}
+      className="flex h-screen font-sans"
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+    >
+      {isDragging && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 pointer-events-none">
+          <div
+            className="text-2xl font-bold px-12 py-8 rounded-2xl shadow-xl border-2 border-dashed"
+            style={{
+              background: 'rgba(var(--sidebar-active-rgb),0.95)',
+              color: 'var(--icon)',
+              borderColor: 'var(--sidebar-border)',
+              borderStyle: 'dashed',
+              borderWidth: 2,
+              boxShadow: '0 8px 32px 0 rgba(0,0,0,0.15)',
+            }}
+          >
+            Drop file here
+          </div>
+        </div>
+      )}
       {/* Sidebar */}
       <aside style={{ background: 'var(--sidebar)', borderRight: `1px solid var(--sidebar-border)` }} className="w-72 flex flex-col shadow-sm">
         <div style={{ borderBottom: '1px solid var(--sidebar-border)' }} className="p-6 flex items-center gap-3">
