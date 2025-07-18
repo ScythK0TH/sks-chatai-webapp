@@ -12,7 +12,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import EditIcon from '@mui/icons-material/Edit';
 
-const WEBHOOK_URL = 'https://example.com/webhook'; // Placeholder
+const WEBHOOK_URL = '/api/n8n-pipe'; // เปลี่ยนจาก URL เดิม
 
 const newSession = () => ({
   id: Date.now().toString(),
@@ -130,24 +130,24 @@ const ChatPage = () => {
   // --- Webhook send function ---
   const sendToWebhook = async (payload: any, isFile = false) => {
     try {
-      let response;
       if (isFile) {
-        response = await fetch(WEBHOOK_URL, {
-          method: 'POST',
-          body: payload, // FormData
-        });
+        // n8n pipe ไม่รองรับ file upload
+        return { reply: 'File upload not supported in n8n pipe.' };
       } else {
-        response = await fetch(WEBHOOK_URL, {
+        const response = await fetch(WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            message: payload.message || payload.input,
+            sessionId: currentId,
+          }),
         });
+        if (!response.ok) throw new Error('Webhook error');
+        const data = await response.json();
+        return data;
       }
-      if (!response.ok) throw new Error('Webhook error');
-      const data = await response.json();
-      return data;
     } catch (e) {
-      return { reply: 'This is a simulated response from the bot.' };
+      return { reply: 'เกิดข้อผิดพลาดในการเชื่อมต่อ n8n.' };
     }
   };
 
