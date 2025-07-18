@@ -297,11 +297,24 @@ const ChatPage = () => {
   };
 
   // --- Read aloud (TTS) for bubble ---
-  const handleReadAloud = (text: string) => {
-    if (!('speechSynthesis' in window)) return;
-    const utter = new window.SpeechSynthesisUtterance(text);
-    utter.lang = 'th-TH';
-    window.speechSynthesis.speak(utter);
+  const handleReadAloud = async (text: string) => {
+    const apiKey = localStorage.getItem('openai_api_key') || '';
+    if (apiKey) {
+      try {
+        await speakText(text);
+        return;
+      } catch (e) {
+        // ถ้าเกิด error ให้ fallback
+      }
+    }
+    // fallback: ใช้ Web Speech API
+    if ('speechSynthesis' in window) {
+      const utter = new window.SpeechSynthesisUtterance(text);
+      utter.lang = localStorage.getItem('openai_language') || 'th-TH';
+      window.speechSynthesis.speak(utter);
+    } else {
+      alert('Text-to-Speech not supported in this browser.');
+    }
   };
 
   if (!mounted) return null;
