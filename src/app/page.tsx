@@ -150,9 +150,26 @@ const ChatPage = () => {
     const file = e.target.files?.[0];
     if (!file || !currentSession) return;
     setUploading(true);
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    const isSpecial = ['pdf', 'xls', 'xlsx', 'txt'].includes(ext || '');
     const formData = new FormData();
     formData.append('file', file);
-    const res = await sendToWebhook(formData, true);
+    let res;
+    if (isSpecial) {
+      try {
+        const response = await fetch('/api/n8n-file-pipe', {
+          method: 'POST',
+          body: formData,
+        });
+        if (!response.ok) throw new Error('File webhook error');
+        const data = await response.json();
+        res = { reply: data.reply || 'File processed.' };
+      } catch {
+        res = { reply: 'เกิดข้อผิดพลาดในการส่งไฟล์ไปยัง n8n (file webhook).' };
+      }
+    } else {
+      res = await sendToWebhook(formData, true);
+    }
     setCurrentSession((s: any) => ({
       ...s,
       messages: [
