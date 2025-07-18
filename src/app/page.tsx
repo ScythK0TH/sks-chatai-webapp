@@ -310,7 +310,7 @@ const ChatPage = () => {
       {/* Sidebar */}
       <aside style={{ background: 'var(--sidebar)', borderRight: `1px solid var(--sidebar-border)` }} className="w-72 flex flex-col shadow-sm">
         <div style={{ borderBottom: '1px solid var(--sidebar-border)' }} className="p-6 flex items-center gap-3">
-          <span style={{ color: 'var(--foreground)' }} className="font-bold text-xl tracking-wide">SK ChatAI</span>
+          <span style={{ color: 'var(--foreground)' }} className="font-bold text-xl tracking-wide">Velura AI</span>
           <button onClick={handleNewChat} title="New chat" style={{ background: 'var(--sidebar-active)' }} className="ml-auto rounded-lg p-2 hover:opacity-80 transition-colors">
             <AddIcon style={{ color: 'var(--icon)' }} />
           </button>
@@ -336,7 +336,7 @@ const ChatPage = () => {
             </div>
           ))}
         </div>
-        <div style={{ color: 'var(--icon-muted)' }} className="p-4 text-xs text-center">Powered by SK ChatAI</div>
+        <div style={{ color: 'var(--icon-muted)' }} className="p-4 text-xs text-center">Powered by Velura™</div>
       </aside>
       {/* Main Chat Area */}
       <main className="flex-1 flex flex-col relative">
@@ -361,7 +361,7 @@ const ChatPage = () => {
                   }}
                 >
                   <ReactMarkdown>{msg.text}</ReactMarkdown>
-                  <span className="absolute left-3 -bottom-9 flex gap-1 items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className={`absolute ${msg.sender === 'user' ? 'right-3' : 'left-3'} -bottom-9 flex gap-1 items-center opacity-0 group-hover:opacity-100 transition-opacity`}>
                     <button onClick={() => handleCopy(msg.text, i)} className="p-1 rounded hover:opacity-80" title="Copy">
                       <ContentCopyIcon style={{ color: 'var(--icon-muted)', fontSize: 18 }} fontSize="small" />
                     </button>
