@@ -36,37 +36,6 @@ function saveSessions(sessions: any[]) {
   localStorage.setItem('chat_sessions', JSON.stringify(sessions));
 }
 
-const themeVars = {
-  light: {
-    '--background': '#fff',
-    '--foreground': '#171717',
-    '--sidebar': '#fff',
-    '--sidebar-border': '#e5e7eb',
-    '--sidebar-active': '#f3f3f3',
-    '--bubble-user': '#fff',
-    '--bubble-bot': '#f3f3f3',
-    '--bubble-border': '#e5e7eb',
-    '--input-bg': '#f8f8f8',
-    '--input-border': '#e5e7eb',
-    '--icon': '#171717',
-    '--icon-muted': '#b0b8c1',
-  },
-  dark: {
-    '--background': '#0a0a0a',
-    '--foreground': '#ededed',
-    '--sidebar': '#111',
-    '--sidebar-border': '#232323',
-    '--sidebar-active': '#232323',
-    '--bubble-user': '#111',
-    '--bubble-bot': '#232323',
-    '--bubble-border': '#232323',
-    '--input-bg': '#18181a',
-    '--input-border': '#232323',
-    '--icon': '#ededed',
-    '--icon-muted': '#444a56',
-  },
-};
-
 const ChatPage = () => {
   // Theme
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -84,8 +53,6 @@ const ChatPage = () => {
     } else {
       html.classList.remove('dark');
     }
-    const vars = themeVars[theme];
-    Object.entries(vars).forEach(([k, v]) => html.style.setProperty(k, v));
   }, [theme, mounted]);
 
   // Sessions
@@ -101,6 +68,7 @@ const ChatPage = () => {
   const voiceTimeoutRef = useRef<any>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isResponding, setIsResponding] = useState(false);
 
   // Load sessions on mount
   useEffect(() => {
@@ -160,11 +128,13 @@ const ChatPage = () => {
       messages: [...s.messages, { sender: 'user', text: input }],
     }));
     setInput('');
+    setIsResponding(true); // เริ่มตอบกลับ
     const res = await sendToWebhook({ message: input });
     setCurrentSession((s: any) => ({
       ...s,
       messages: [...s.messages, { sender: 'bot', text: res.reply }],
     }));
+    setIsResponding(false); // ตอบกลับเสร็จ
     if (voiceMode) speakText(res.reply);
   };
 
@@ -381,6 +351,21 @@ const ChatPage = () => {
                 </span>
               </div>
             ))}
+            {isResponding && (
+              <div className="group flex justify-start items-end">
+                <span
+                  className="relative inline-block rounded-2xl px-5 py-3 max-w-[80%] md:max-w-[70%] break-words text-base md:text-lg shadow-sm border rounded-bl-md animate-pulse-gradient"
+                  style={{
+                    background: 'linear-gradient(90deg, var(--bubble-bot-left) 25%, var(--sidebar-active) 50%, var(--bubble-bot-right) 75%)',
+                    backgroundSize: '200% 100%',
+                    color: 'var(--foreground)',
+                    border: `1px solid var(--bubble-border)`
+                  }}
+                >
+                  <span className="opacity-70">Responding...</span>
+                </span>
+              </div>
+            )}
             <div ref={messagesEndRef} />
             {listening && voiceMode && (
               <div style={{ color: 'var(--icon-muted)' }} className="text-center font-semibold">Listening...</div>
